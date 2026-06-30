@@ -1,0 +1,993 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f6f68">
+  <meta name="description" content="今日を納得して終えるための、ターン制の一日管理PWA。">
+  <title>ターン手帖</title>
+  <link rel="manifest" href="./manifest.json">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #222421;
+      --muted: #6b7169;
+      --paper: #fbfaf5;
+      --panel: #ffffff;
+      --line: #d9ddd2;
+      --green: #1f6f68;
+      --green-soft: #dceee9;
+      --sun: #f2b84b;
+      --sky: #7aa7c7;
+      --rose: #d77b7b;
+      --shadow: 0 14px 36px rgba(43, 50, 42, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+      background: var(--paper);
+    }
+
+    body {
+      min-height: 100%;
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgba(220, 238, 233, 0.95) 0, rgba(251, 250, 245, 0) 290px),
+        var(--paper);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app {
+      width: min(100%, 480px);
+      margin: 0 auto;
+      padding: max(18px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 0 18px;
+    }
+
+    .brand {
+      min-width: 0;
+    }
+
+    .brand-title {
+      margin: 0;
+      font-size: 1.35rem;
+      line-height: 1.1;
+      font-weight: 800;
+    }
+
+    .brand-date {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .install-button {
+      display: none;
+      min-height: 38px;
+      border: 1px solid rgba(31, 111, 104, 0.25);
+      border-radius: 999px;
+      padding: 0 13px;
+      color: var(--green);
+      background: rgba(255, 255, 255, 0.72);
+      font-weight: 700;
+    }
+
+    .install-button.is-visible {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .hero {
+      padding: 20px;
+      border: 1px solid rgba(31, 111, 104, 0.16);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.8);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 8px;
+      color: var(--green);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .hero-label::before {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--sun);
+      content: "";
+    }
+
+    .hero h2 {
+      margin: 0;
+      font-size: 1.58rem;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .hero-text {
+      margin: 12px 0 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 0.94rem;
+    }
+
+    .turn-summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .metric {
+      min-width: 0;
+      padding: 12px;
+      border-radius: 8px;
+      background: #f5f7ef;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 1.45rem;
+      line-height: 1;
+    }
+
+    .progress {
+      overflow: hidden;
+      height: 12px;
+      margin-top: 16px;
+      border-radius: 999px;
+      background: #e8ece1;
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--green), var(--sky), var(--sun));
+      transition: width 180ms ease;
+    }
+
+    .section {
+      margin-top: 22px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+
+    .section-note {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .panel {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .field label,
+    .field legend {
+      display: block;
+      margin: 0 0 7px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .field select,
+    .field textarea,
+    .field input {
+      width: 100%;
+      border: 1px solid #cfd6ca;
+      border-radius: 8px;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    .field select,
+    .field input {
+      min-height: 46px;
+      padding: 0 12px;
+    }
+
+    .field textarea {
+      min-height: 74px;
+      resize: vertical;
+      padding: 11px 12px;
+      line-height: 1.5;
+    }
+
+    fieldset {
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .segmented input {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .segmented label {
+      display: grid;
+      min-height: 44px;
+      place-items: center;
+      margin: 0;
+      border: 1px solid #cfd6ca;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .segmented input:checked + label {
+      border-color: var(--green);
+      background: var(--green-soft);
+      color: #124942;
+    }
+
+    .primary {
+      min-height: 48px;
+      border: 0;
+      border-radius: 8px;
+      color: white;
+      background: var(--green);
+      font-weight: 800;
+      box-shadow: 0 10px 20px rgba(31, 111, 104, 0.18);
+    }
+
+    .primary:disabled {
+      color: #ebeee8;
+      background: #9aa9a3;
+      box-shadow: none;
+    }
+
+    .quiet {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--green);
+      background: #fff;
+      font-weight: 800;
+    }
+
+    .settings {
+      display: grid;
+      grid-template-columns: 1fr 112px;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .log-list,
+    .history-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .entry,
+    .day-row {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .entry {
+      padding: 12px;
+    }
+
+    .entry-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .entry-title {
+      min-width: 0;
+      font-weight: 800;
+    }
+
+    .entry-meta {
+      flex: 0 0 auto;
+      color: var(--green);
+      font-size: 0.86rem;
+      font-weight: 900;
+    }
+
+    .entry-note {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.88rem;
+      overflow-wrap: anywhere;
+    }
+
+    .entry-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 9px;
+    }
+
+    .delete-button {
+      min-height: 34px;
+      border: 0;
+      border-radius: 8px;
+      color: #9b3d3d;
+      background: #f8e7e5;
+      padding: 0 10px;
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .empty {
+      margin: 0;
+      padding: 20px 8px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.65;
+      font-size: 0.9rem;
+    }
+
+    .day-row {
+      overflow: hidden;
+    }
+
+    .day-button {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      width: 100%;
+      min-height: 56px;
+      border: 0;
+      background: #fff;
+      color: var(--ink);
+      padding: 11px 12px;
+      text-align: left;
+    }
+
+    .day-name {
+      font-weight: 850;
+    }
+
+    .day-sub {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .day-turns {
+      align-self: center;
+      color: var(--green);
+      font-weight: 900;
+    }
+
+    .day-detail {
+      display: none;
+      padding: 0 12px 12px;
+    }
+
+    .day-row.is-open .day-detail {
+      display: block;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .chip {
+      border-radius: 999px;
+      background: #f1f3ec;
+      padding: 5px 8px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 750;
+    }
+
+    .reflection {
+      display: grid;
+      gap: 10px;
+    }
+
+    .reflection-output {
+      margin: 0;
+      padding: 13px;
+      border-radius: 8px;
+      background: #f7f2e7;
+      color: #514735;
+      line-height: 1.7;
+      font-size: 0.92rem;
+    }
+
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: calc(16px + env(safe-area-inset-bottom));
+      left: 16px;
+      z-index: 10;
+      display: none;
+      width: min(448px, calc(100% - 32px));
+      margin: 0 auto;
+      border-radius: 8px;
+      background: #222421;
+      color: white;
+      padding: 12px 14px;
+      text-align: center;
+      font-weight: 750;
+      box-shadow: var(--shadow);
+    }
+
+    .toast.is-visible {
+      display: block;
+    }
+
+    @media (min-width: 520px) {
+      .app {
+        padding-top: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1 class="brand-title">ターン手帖</h1>
+        <p class="brand-date" id="todayLabel"></p>
+      </div>
+      <button class="install-button" id="installButton" type="button">入れる</button>
+    </header>
+
+    <section class="hero" aria-labelledby="todayHeading">
+      <p class="hero-label">今日の眺め</p>
+      <h2 id="todayHeading">ちゃんと進めたことを、見える形で残す。</h2>
+      <p class="hero-text" id="dayMessage"></p>
+
+      <div class="turn-summary" aria-label="今日のターン数">
+        <div class="metric">
+          <span>使ったターン</span>
+          <strong id="usedTurns">0</strong>
+        </div>
+        <div class="metric">
+          <span>残りターン</span>
+          <strong id="remainingTurns">0</strong>
+        </div>
+        <div class="metric">
+          <span>今日の最大</span>
+          <strong id="maxTurnsDisplay">8</strong>
+        </div>
+        <div class="metric">
+          <span>納得メモ</span>
+          <strong id="entryCount">0件</strong>
+        </div>
+      </div>
+
+      <div class="progress" aria-hidden="true">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="addHeading">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title" id="addHeading">ターンを記録</h2>
+          <p class="section-note">休むターンも、今日を保つための大事な一手です。</p>
+        </div>
+      </div>
+
+      <form class="panel form-grid" id="turnForm">
+        <div class="field">
+          <label for="category">カテゴリ</label>
+          <select id="category" name="category">
+            <option>作業</option>
+            <option>ゲーム</option>
+            <option>家事</option>
+            <option>調べもの</option>
+            <option>休憩</option>
+            <option>外出</option>
+            <option>体調回復</option>
+          </select>
+        </div>
+
+        <fieldset class="field">
+          <legend>使ったターン</legend>
+          <div class="segmented">
+            <input id="turn05" name="turnSize" type="radio" value="0.5">
+            <label for="turn05">0.5</label>
+            <input id="turn1" name="turnSize" type="radio" value="1" checked>
+            <label for="turn1">1</label>
+            <input id="turn2" name="turnSize" type="radio" value="2">
+            <label for="turn2">2</label>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label for="note">何をしたか</label>
+          <textarea id="note" name="note" placeholder="例: 午前の作業を1ターン進めた"></textarea>
+        </div>
+
+        <button class="primary" id="addButton" type="submit">今日に記録する</button>
+      </form>
+    </section>
+
+    <section class="section" aria-labelledby="settingHeading">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title" id="settingHeading">今日の器</h2>
+          <p class="section-note">日によって、持てる量は変わっていい。</p>
+        </div>
+      </div>
+      <div class="panel settings">
+        <div class="field">
+          <label for="maxTurnsInput">最大ターン数</label>
+          <input id="maxTurnsInput" type="number" min="1" max="24" step="0.5" inputmode="decimal">
+        </div>
+        <button class="quiet" id="saveMaxTurns" type="button">更新</button>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="logHeading">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title" id="logHeading">今日の足あと</h2>
+          <p class="section-note">積み上げではなく、過ごし方の記録。</p>
+        </div>
+      </div>
+      <div class="log-list" id="logList"></div>
+    </section>
+
+    <section class="section" aria-labelledby="reflectionHeading">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title" id="reflectionHeading">終えるためのひとこと</h2>
+          <p class="section-note">今日を責めずに閉じるための短いまとめ。</p>
+        </div>
+      </div>
+      <div class="panel reflection">
+        <p class="reflection-output" id="reflectionText"></p>
+        <button class="quiet" id="copyReflection" type="button">ひとことをコピー</button>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="historyHeading">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title" id="historyHeading">過去7日</h2>
+          <p class="section-note">よくできた日も、静かに過ごした日も並べて見る。</p>
+        </div>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const STORAGE_KEY = "turn-techo-v1";
+    const categories = ["作業", "ゲーム", "家事", "調べもの", "休憩", "外出", "体調回復"];
+    const appState = loadState();
+    const elements = {
+      todayLabel: document.querySelector("#todayLabel"),
+      dayMessage: document.querySelector("#dayMessage"),
+      usedTurns: document.querySelector("#usedTurns"),
+      remainingTurns: document.querySelector("#remainingTurns"),
+      maxTurnsDisplay: document.querySelector("#maxTurnsDisplay"),
+      entryCount: document.querySelector("#entryCount"),
+      progressFill: document.querySelector("#progressFill"),
+      turnForm: document.querySelector("#turnForm"),
+      category: document.querySelector("#category"),
+      note: document.querySelector("#note"),
+      maxTurnsInput: document.querySelector("#maxTurnsInput"),
+      saveMaxTurns: document.querySelector("#saveMaxTurns"),
+      addButton: document.querySelector("#addButton"),
+      logList: document.querySelector("#logList"),
+      historyList: document.querySelector("#historyList"),
+      reflectionText: document.querySelector("#reflectionText"),
+      copyReflection: document.querySelector("#copyReflection"),
+      toast: document.querySelector("#toast"),
+      installButton: document.querySelector("#installButton")
+    };
+
+    let deferredInstallPrompt = null;
+
+    function todayKey() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function dateKeyFromOffset(offset) {
+      const date = new Date();
+      date.setDate(date.getDate() - offset);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function formatDateLabel(key) {
+      const date = new Date(`${key}T00:00:00`);
+      return new Intl.DateTimeFormat("ja-JP", {
+        month: "long",
+        day: "numeric",
+        weekday: "short"
+      }).format(date);
+    }
+
+    function loadState() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (parsed && parsed.days) {
+          return parsed;
+        }
+      } catch (error) {
+        console.warn("保存データを読み込めませんでした", error);
+      }
+
+      return {
+        defaultMaxTurns: 8,
+        days: {}
+      };
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+    }
+
+    function getDay(key = todayKey()) {
+      if (!appState.days[key]) {
+        appState.days[key] = {
+          maxTurns: appState.defaultMaxTurns || 8,
+          entries: []
+        };
+      }
+      return appState.days[key];
+    }
+
+    function usedTurns(day) {
+      return day.entries.reduce((sum, entry) => sum + Number(entry.turns), 0);
+    }
+
+    function cleanNumber(value) {
+      return Number.isInteger(value) ? String(value) : String(value.toFixed(1)).replace(/\.0$/, "");
+    }
+
+    function categorySummary(entries) {
+      return categories
+        .map((category) => {
+          const total = entries
+            .filter((entry) => entry.category === category)
+            .reduce((sum, entry) => sum + Number(entry.turns), 0);
+          return total > 0 ? `${category} ${cleanNumber(total)}` : "";
+        })
+        .filter(Boolean);
+    }
+
+    function makeDayMessage(day, used, remaining) {
+      if (day.entries.length === 0) {
+        return "まだ白紙です。最初の0.5ターンだけでも、今日の輪郭になります。";
+      }
+
+      if (remaining <= 0) {
+        return "今日の器はしっかり使い切りました。ここからは整える時間にしても大丈夫です。";
+      }
+
+      const hasRecovery = day.entries.some((entry) => entry.category === "休憩" || entry.category === "体調回復");
+      if (hasRecovery) {
+        return `休む時間も含めて、${cleanNumber(used)}ターン分の今日があります。残りは${cleanNumber(remaining)}ターンです。`;
+      }
+
+      return `${cleanNumber(used)}ターン分、今日に手触りができました。残りは${cleanNumber(remaining)}ターンです。`;
+    }
+
+    function makeReflection(day, key) {
+      const used = usedTurns(day);
+      if (day.entries.length === 0) {
+        return `${formatDateLabel(key)}は、まだ何も記録していません。小さく始めても、静かに終えても大丈夫。`;
+      }
+
+      const summary = categorySummary(day.entries).join("、");
+      const rest = day.entries
+        .filter((entry) => entry.category === "休憩" || entry.category === "体調回復")
+        .reduce((sum, entry) => sum + Number(entry.turns), 0);
+      const restText = rest > 0 ? ` その中には、回復のための${cleanNumber(rest)}ターンも含まれています。` : "";
+      return `${formatDateLabel(key)}は合計${cleanNumber(used)}ターン。${summary}。${restText}今日をここまで運べたので、もう閉じてもいい。`;
+    }
+
+    function showToast(message) {
+      elements.toast.textContent = message;
+      elements.toast.classList.add("is-visible");
+      window.setTimeout(() => {
+        elements.toast.classList.remove("is-visible");
+      }, 1800);
+    }
+
+    function render() {
+      const key = todayKey();
+      const day = getDay(key);
+      const used = usedTurns(day);
+      const remaining = Math.max(0, Number(day.maxTurns) - used);
+      const percentage = Math.min(100, (used / Number(day.maxTurns)) * 100);
+
+      elements.todayLabel.textContent = formatDateLabel(key);
+      elements.usedTurns.textContent = cleanNumber(used);
+      elements.remainingTurns.textContent = cleanNumber(remaining);
+      elements.maxTurnsDisplay.textContent = cleanNumber(Number(day.maxTurns));
+      elements.entryCount.textContent = `${day.entries.length}件`;
+      elements.progressFill.style.width = `${Number.isFinite(percentage) ? percentage : 0}%`;
+      elements.maxTurnsInput.value = cleanNumber(Number(day.maxTurns));
+      elements.dayMessage.textContent = makeDayMessage(day, used, remaining);
+      elements.reflectionText.textContent = makeReflection(day, key);
+
+      renderTodayLog(day);
+      renderHistory();
+      saveState();
+    }
+
+    function renderTodayLog(day) {
+      elements.logList.innerHTML = "";
+
+      if (day.entries.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "empty";
+        empty.textContent = "まだ記録はありません。今日の最初の一手を、軽く残しておきましょう。";
+        elements.logList.append(empty);
+        return;
+      }
+
+      [...day.entries].reverse().forEach((entry) => {
+        const item = document.createElement("article");
+        item.className = "entry";
+
+        const main = document.createElement("div");
+        main.className = "entry-main";
+
+        const title = document.createElement("div");
+        title.className = "entry-title";
+        title.textContent = entry.category;
+
+        const meta = document.createElement("div");
+        meta.className = "entry-meta";
+        meta.textContent = `${cleanNumber(Number(entry.turns))}ターン`;
+
+        main.append(title, meta);
+        item.append(main);
+
+        if (entry.note) {
+          const note = document.createElement("p");
+          note.className = "entry-note";
+          note.textContent = entry.note;
+          item.append(note);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "entry-actions";
+
+        const button = document.createElement("button");
+        button.className = "delete-button";
+        button.type = "button";
+        button.textContent = "取り消す";
+        button.addEventListener("click", () => deleteEntry(entry.id));
+        actions.append(button);
+        item.append(actions);
+
+        elements.logList.append(item);
+      });
+    }
+
+    function renderHistory() {
+      elements.historyList.innerHTML = "";
+
+      for (let offset = 0; offset < 7; offset += 1) {
+        const key = dateKeyFromOffset(offset);
+        const day = getDay(key);
+        const used = usedTurns(day);
+        const row = document.createElement("article");
+        row.className = "day-row";
+
+        const button = document.createElement("button");
+        button.className = "day-button";
+        button.type = "button";
+
+        const label = document.createElement("div");
+        const name = document.createElement("span");
+        name.className = "day-name";
+        name.textContent = offset === 0 ? "今日" : formatDateLabel(key);
+        const sub = document.createElement("span");
+        sub.className = "day-sub";
+        sub.textContent = day.entries.length === 0 ? "記録なし" : `${day.entries.length}件の記録`;
+        label.append(name, sub);
+
+        const turns = document.createElement("div");
+        turns.className = "day-turns";
+        turns.textContent = `${cleanNumber(used)} / ${cleanNumber(Number(day.maxTurns))}`;
+
+        button.append(label, turns);
+        button.addEventListener("click", () => {
+          row.classList.toggle("is-open");
+        });
+
+        const detail = document.createElement("div");
+        detail.className = "day-detail";
+
+        const chips = document.createElement("div");
+        chips.className = "chips";
+        const summaries = categorySummary(day.entries);
+        if (summaries.length === 0) {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = "白紙の日";
+          chips.append(chip);
+        } else {
+          summaries.forEach((text) => {
+            const chip = document.createElement("span");
+            chip.className = "chip";
+            chip.textContent = text;
+            chips.append(chip);
+          });
+        }
+
+        const reflection = document.createElement("p");
+        reflection.className = "entry-note";
+        reflection.textContent = makeReflection(day, key);
+
+        detail.append(chips, reflection);
+        row.append(button, detail);
+        elements.historyList.append(row);
+      }
+    }
+
+    function addEntry(event) {
+      event.preventDefault();
+      const day = getDay();
+      const formData = new FormData(elements.turnForm);
+      const turns = Number(formData.get("turnSize"));
+      const entry = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        category: String(formData.get("category")),
+        turns,
+        note: elements.note.value.trim(),
+        createdAt: new Date().toISOString()
+      };
+
+      day.entries.push(entry);
+      elements.note.value = "";
+      render();
+      showToast(entry.category === "休憩" ? "休む一手を記録しました" : "今日に記録しました");
+    }
+
+    function deleteEntry(id) {
+      const day = getDay();
+      day.entries = day.entries.filter((entry) => entry.id !== id);
+      render();
+      showToast("記録を取り消しました");
+    }
+
+    function saveMaxTurns() {
+      const value = Number(elements.maxTurnsInput.value);
+      if (!Number.isFinite(value) || value < 1 || value > 24) {
+        showToast("1から24の間で入れてください");
+        return;
+      }
+
+      const rounded = Math.round(value * 2) / 2;
+      const day = getDay();
+      day.maxTurns = rounded;
+      appState.defaultMaxTurns = rounded;
+      render();
+      showToast("今日の器を更新しました");
+    }
+
+    async function copyReflection() {
+      const text = elements.reflectionText.textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast("コピーしました");
+      } catch (error) {
+        showToast("コピーできませんでした");
+      }
+    }
+
+    elements.turnForm.addEventListener("submit", addEntry);
+    elements.saveMaxTurns.addEventListener("click", saveMaxTurns);
+    elements.copyReflection.addEventListener("click", copyReflection);
+
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      elements.installButton.classList.add("is-visible");
+    });
+
+    elements.installButton.addEventListener("click", async () => {
+      if (!deferredInstallPrompt) {
+        return;
+      }
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      elements.installButton.classList.remove("is-visible");
+    });
+
+    if ("serviceWorker" in navigator && ["https:", "http:"].includes(window.location.protocol)) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js").catch(() => {
+          console.warn("Service Workerを登録できませんでした");
+        });
+      });
+    }
+
+    render();
+  </script>
+</body>
+</html>
